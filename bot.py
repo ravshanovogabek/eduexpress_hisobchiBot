@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import TOKEN, PRICES
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+
 from aiohttp import web
 import os
 
