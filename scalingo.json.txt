@@ -1,5 +1,0 @@
-{
-  "containers": {
-    "worker": 1
-  }
-}

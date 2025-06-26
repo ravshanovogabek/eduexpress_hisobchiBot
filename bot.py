@@ -1,14 +1,15 @@
 import asyncio
 import logging
+import os
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
-from config import TOKEN, PRICES
-
 from aiohttp import web
-import os
+
+from config import TOKEN, PRICES  # TOKEN va PRICES ni Railway ENV orqali uzatish tavsiya qilinadi
 
 
 # --- FSM States ---
@@ -32,21 +33,18 @@ def program_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="🎓 Bakalavr"), KeyboardButton(text="🎓 Magistratura")],
                   [KeyboardButton(text="🌐 Til kursi")],
-                  [KeyboardButton(text="🔙 Orqaga")]],
-        resize_keyboard=True
+                  [KeyboardButton(text="🔙 Orqaga")]], resize_keyboard=True
     )
 
 def region_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="🏢 Seul ichida"), KeyboardButton(text="🏠 Seul tashqarisida")],
-                  [KeyboardButton(text="🔙 Orqaga")]],
-        resize_keyboard=True
+                  [KeyboardButton(text="🔙 Orqaga")]], resize_keyboard=True
     )
 
 def restart_keyboard():
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="♻️ Boshqatdan hisoblash")]],
-        resize_keyboard=True
+        keyboard=[[KeyboardButton(text="♻️ Boshqatdan hisoblash")]], resize_keyboard=True
     )
 
 contact_buttons = InlineKeyboardMarkup(inline_keyboard=[
@@ -56,9 +54,16 @@ contact_buttons = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🎵 TikTok (@eduexpress_uz)", url="https://tiktok.com/@eduexpress_uz")]
 ])
 
-# --- Bot Setup ---
+
+# --- Bot setup ---
+TOKEN = os.getenv("BOT_TOKEN", TOKEN)
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "supersecret123")
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"https://{os.getenv('RAILWAY_STATIC_URL')}{WEBHOOK_PATH}"
+
 bot = Bot(TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+
 
 # --- Handlers ---
 @dp.message(F.text == "/start")
@@ -151,7 +156,6 @@ async def program_choice(message: Message, state: FSMContext):
 
     await state.set_state(Form.region)
 
-
 @dp.message(Form.region)
 async def region_choice(message: Message, state: FSMContext):
     if message.text == "🔙 Orqaga":
@@ -170,7 +174,6 @@ async def region_choice(message: Message, state: FSMContext):
     await message.answer("🏦 Bank shot qo‘yib berish xizmatidan foydalanasizmi?", reply_markup=yes_no_keyboard())
     await state.set_state(Form.bank_shot)
 
-
 @dp.message(Form.bank_shot)
 async def bank_shot(message: Message, state: FSMContext):
     if message.text == "🔙 Orqaga":
@@ -181,7 +184,6 @@ async def bank_shot(message: Message, state: FSMContext):
     await state.update_data(bank_shot=message.text)
     await message.answer("👥 Ota-ona yillik daromadi xizmati kerakmi? (+600 USD)", reply_markup=yes_no_keyboard())
     await state.set_state(Form.parents_income)
-
 
 @dp.message(Form.parents_income)
 async def summary(message: Message, state: FSMContext):
@@ -205,27 +207,18 @@ async def summary(message: Message, state: FSMContext):
 
     if data["program"] == "Til kursi":
         if "Ha" in data["bank_shot"]:
-            # Foydalanuvchi xizmatdan foydalansa → faqat xizmat narxi
-            amount = PRICES["bank_shot_lang_service_seoul"] if data["region"] == "Seul ichida" else PRICES[
-                "bank_shot_lang_service_other"]
+            amount = PRICES["bank_shot_lang_service_seoul"] if data["region"] == "Seul ichida" else PRICES["bank_shot_lang_service_other"]
             total += amount
             msg += f"🛠️ Bank shot xizmati: {amount} USD\n"
-
-        elif "Yo'q" in data["bank_shot"]:
-            # Xizmatdan foydalanmasa → faqat kurs narxi
+        else:
             course_fee = 8000 if data["region"] == "Seul ichida" else 7000
             total += course_fee
             msg += f"📘 Bank shot: {course_fee} USD\n"
-
-
-
-
-    elif data["program"] in ["Bakalavr", "Magistratura"]:
+    else:
         if "Yo'q" in data["bank_shot"]:
             amount = PRICES["bank_shot_seoul"] if data["region"] == "Seul ichida" else PRICES["bank_shot_other"]
         else:
             amount = PRICES["bank_shot_service_seoul"] if data["region"] == "Seul ichida" else PRICES["bank_shot_service_other"]
-
         total += amount
         is_no = "Yo'q" in data["bank_shot"]
         msg += f"{'🏦' if is_no else '🛠️'} Bank shot {'summasi' if is_no else 'xizmati'}: {amount} USD\n"
@@ -238,12 +231,47 @@ async def summary(message: Message, state: FSMContext):
     msg += "\n⚠️ Diqqat! Bu taxminiy hisob. O‘zgarishi mumkin."
 
     await message.answer(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+    await message.answer(
+        "🏢 *Eduexpress* — bu Janubiy Koreyada o‘qish uchun to‘liq hujjatlar to‘plami, "
+        "professional maslahat va ishonchli hamkorlikni taklif qiluvchi kompaniya.\n\n"
+        "✅ 1000+ muvaffaqiyatli talabalar\n"
+        "✅ Rasmiy universitetlar bilan hamkorlik\n"
+        "✅ Visa, bank shot, ota-ona daromadi va boshqa hujjatlar — barchasi bir joyda!\n\n"
+        "Siz ham bizga qo‘shiling va o‘qishingizni biz bilan boshlang!",
+        parse_mode="Markdown")
     await message.answer("Quyidagi tugmalar orqali biz bilan bog‘laning 👇", reply_markup=contact_buttons)
     await message.answer("♻️ Hisobni boshqatdan boshlash uchun tugmani bosing:", reply_markup=restart_keyboard())
     await state.clear()
 
 
-# --- Run Bot ---
-if __name__ == "__main__":
+# --- Webhook Server (aiohttp) ---
+async def on_startup(bot: Bot):
+    await bot.set_webhook(WEBHOOK_URL, secret_token=WEBHOOK_SECRET)
+    logging.info("Webhook set successfully")
+
+async def on_shutdown(bot: Bot):
+    await bot.delete_webhook()
+
+async def handle_webhook(request: web.Request):
+    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
+        return web.Response(status=403)
+    data = await request.json()
+    await dp.feed_update(bot, data)
+    return web.Response()
+
+app = web.Application()
+app.router.add_post(WEBHOOK_PATH, handle_webhook)
+
+async def main():
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(dp.start_polling(bot))
+    await on_startup(bot)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
+    await site.start()
+    logging.info(f"Bot listening via webhook on {WEBHOOK_URL}")
+    while True:
+        await asyncio.sleep(3600)
+
+if __name__ == "__main__":
+    asyncio.run(main())
