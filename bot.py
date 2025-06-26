@@ -256,10 +256,12 @@ async def on_shutdown(bot: Bot):
 async def handle_webhook(request: web.Request):
     if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
         return web.Response(status=403)
+
     data = await request.json()
-    update = Update.model_validate(data)
+    update = Update.model_validate(data)  # DIQQAT: Bu joy bo'lishi shart!
     await dp.feed_update(bot, update)
     return web.Response()
+
 
 app = web.Application()
 app.router.add_post(WEBHOOK_PATH, handle_webhook)
