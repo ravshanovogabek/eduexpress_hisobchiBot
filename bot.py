@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from aiogram.types import Update
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
@@ -256,7 +257,8 @@ async def handle_webhook(request: web.Request):
     if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
         return web.Response(status=403)
     data = await request.json()
-    await dp.feed_update(bot, data)
+    update = Update.model_validate(data)
+    await dp.feed_update(bot, update)
     return web.Response()
 
 app = web.Application()
